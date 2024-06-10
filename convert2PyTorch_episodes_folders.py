@@ -5,8 +5,8 @@ import os
 import numpy as np
 from discretize_actions import discretize
 
-DATASET_PATH = ""
-SAVE_PATH = ""
+DATASET_PATH = "/gpfsdswork/dataset/DROID"
+SAVE_PATH = "/gpfsscratch/rech/uli/ujf38zl/DROID/"
 
 dataset = tfds.load("droid", data_dir=DATASET_PATH, split="train")
 episode_count = 0
