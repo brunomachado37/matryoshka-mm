@@ -3,10 +3,11 @@
 #SBATCH --output=logs/check_len.%j.out
 #SBATCH --error=logs/check_len.%j.err
 
-#SBATCH --mem=80G
+#SBATCH -A uli@cpu
+#SBATCH --qos=qos_cpu-t4 
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=64
-#SBATCH -t 100:00:00
+#SBATCH --cpus-per-task=32
+#SBATCH -t 10:00:00
 
 
 echo ${SLURM_NODELIST}

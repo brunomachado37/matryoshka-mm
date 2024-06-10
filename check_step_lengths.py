@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 import json
 
-dataset_path = ""
+dataset_path = "/gpfsscratch/rech/uli/ujf38zl/DROID/eval"
 
 length_list = []
 
