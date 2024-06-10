@@ -7,11 +7,16 @@ dist
 # Log
 *.log
 *.log.*
-*.json
+.json
 *.jsonl
+logs
+
+# Model Checkpoints
+models
 
 # Data
 !**/alpaca-data-conversation.json
+img_droid_test
 
 # Editor
 .idea
@@ -19,6 +24,7 @@ dist
 
 # Other
 .DS_Store
+.vscode
 wandb
 output
 

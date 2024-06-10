@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 import json
 import logging
 import pathlib
+import re
 from typing import Dict, Optional, Sequence, List
 
 import torch
@@ -29,6 +30,7 @@ import tokenizers
 
 from llava.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from torch.utils.data import Dataset
+from torchvision.transforms.functional import to_pil_image
 from llava.train.llava_trainer import LLaVATrainer
 
 from llava import conversation as conversation_lib
@@ -64,16 +66,19 @@ class ModelArguments:
     mm_use_im_patch_token: bool = field(default=True)
     mm_patch_merge_type: Optional[str] = field(default='flat')
     mm_vision_select_feature: Optional[str] = field(default="patch")
+    tokenizer_path: str = None
 
 
 @dataclass
 class DataArguments:
     data_path: str = field(default=None,
                            metadata={"help": "Path to the training data."})
+    eval_path: str = None
     lazy_preprocess: bool = False
     is_multimodal: bool = False
     image_folder: Optional[str] = field(default=None)
     image_aspect_ratio: str = 'square'
+    matryoshka_vis_token_scale: Optional[int] = None
 
 
 @dataclass
@@ -303,6 +308,28 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
             conversation += sentence["value"]
     conversation += BEGIN_SIGNAL
     return conversation
+
+
+def expand2square(pil_img, background_color):
+    '''Expand PIL image to a square using the provided background color'''
+    width, height = pil_img.size
+    if width == height:
+        return pil_img
+    elif width > height:
+        result = Image.new(pil_img.mode, (width, width), background_color)
+        result.paste(pil_img, (0, (width - height) // 2))
+        return result
+    else:
+        result = Image.new(pil_img.mode, (height, height), background_color)
+        result.paste(pil_img, ((height - width) // 2, 0))
+        return result
+
+
+def format_input_prompt(
+    instruction: str,
+    action: str,
+) -> str:
+    return f"{DEFAULT_IMAGE_TOKEN}\n{instruction}. Next Action: {action}"
 
 
 def preprocess_multimodal(
@@ -607,6 +634,18 @@ def preprocess_plain(
     return dict(input_ids=input_ids, labels=targets)
 
 
+def preprocess_droid(
+    prompt: str,
+    tokenizer: transformers.PreTrainedTokenizer,
+) -> Dict:
+    input_ids = tokenizer_image_token(prompt, tokenizer, return_tensors='pt')
+
+    targets = copy.deepcopy(input_ids)
+    targets[:-8] = IGNORE_INDEX
+
+    return dict(input_ids=input_ids, labels=targets)
+
+
 def preprocess(
     sources: Sequence[str],
     tokenizer: transformers.PreTrainedTokenizer,
@@ -700,18 +739,6 @@ class LazySupervisedDataset(Dataset):
             processor = self.data_args.image_processor
             image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
             if self.data_args.image_aspect_ratio == 'pad':
-                def expand2square(pil_img, background_color):
-                    width, height = pil_img.size
-                    if width == height:
-                        return pil_img
-                    elif width > height:
-                        result = Image.new(pil_img.mode, (width, width), background_color)
-                        result.paste(pil_img, (0, (width - height) // 2))
-                        return result
-                    else:
-                        result = Image.new(pil_img.mode, (height, height), background_color)
-                        result.paste(pil_img, ((height - width) // 2, 0))
-                        return result
                 image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
                 image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
             else:
@@ -739,11 +766,119 @@ class LazySupervisedDataset(Dataset):
         return data_dict
 
 
+class DroidLazySupervisedDataset(Dataset):
+    """PyTorch DROID dataset."""
+
+    def __init__(self, data_path: str,
+                 tokenizer: transformers.PreTrainedTokenizer,
+                 data_args: DataArguments):
+        super(DroidLazySupervisedDataset, self).__init__()
+        with open(f"{data_path}/metadata.json", "r") as meta:
+            metadata = json.load(meta)
+
+        self.number_of_steps = metadata["number_of_steps"]
+        self.accumulated_sum = metadata["accumulated_sum"]
+
+        self.length_list = []
+        for i in range(len(metadata["text_lengths"])):
+            self.length_list += [metadata["text_lengths"][i]] * metadata["number_of_steps_per_episode"][i]
+
+        rank0_print("Formatting inputs...Skip in lazy mode")
+        self.tokenizer = tokenizer
+        self.data_args = data_args
+        self.dataset_path = data_path
+
+
+    def __len__(self):
+        return self.number_of_steps
+
+    @property
+    def modality_lengths(self):
+        return self.length_list
+
+    def __getitem__(self, i) -> Dict[str, torch.Tensor]:
+        episode_id = next(j for j, v in enumerate(self.accumulated_sum) if v > i)
+        step_id = i - self.accumulated_sum[episode_id-1] if episode_id > 0 else i
+
+        with open(f"{self.dataset_path}/episode_{episode_id}/step_{step_id}", "rb") as file:       
+            step = torch.load(file)
+
+        processor = self.data_args.image_processor
+        image = to_pil_image(step["image"].permute((2, 0, 1)))
+
+        if self.data_args.image_aspect_ratio == 'pad':
+            image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
+            image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+        else:
+            image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+
+        input_prompt = format_input_prompt(step['language_instruction'], step['action'])
+        
+        data_dict = preprocess_droid(input_prompt, self.tokenizer)
+        data_dict['image'] = image
+
+        return data_dict
+    
+
+class DroidJpgLazySupervisedDataset(Dataset):
+    """PyTorch DROID dataset with images saved as JPGs."""
+
+    def __init__(self, data_path: str,
+                 tokenizer: transformers.PreTrainedTokenizer,
+                 data_args: DataArguments):
+        super(DroidJpgLazySupervisedDataset, self).__init__()
+        with open(f"{data_path}/metadata.json", "r") as meta:
+            metadata = json.load(meta)
+
+        self.number_of_steps = metadata["number_of_steps"]
+        self.accumulated_sum = metadata["accumulated_sum"]
+
+        self.length_list = []
+        for i in range(len(metadata["text_lengths"])):
+            self.length_list += [metadata["text_lengths"][i]] * metadata["number_of_steps_per_episode"][i]
+
+        rank0_print("Formatting inputs...Skip in lazy mode")
+        self.tokenizer = tokenizer
+        self.data_args = data_args
+        self.dataset_path = data_path
+
+    def __len__(self):
+        return self.number_of_steps
+
+    @property
+    def modality_lengths(self):
+        return self.length_list
+
+    def __getitem__(self, i) -> Dict[str, torch.Tensor]:
+        episode_id = next(j for j, v in enumerate(self.accumulated_sum) if v > i)
+        step_id = i - self.accumulated_sum[episode_id-1] if episode_id > 0 else i
+
+        with open(f"{self.dataset_path}/episode_{episode_id}/step_{step_id}.json", "r") as file:       
+            step = json.load(file)
+
+        processor = self.data_args.image_processor
+        image = Image.open(f"{self.dataset_path}/episode_{episode_id}/step_{step_id}.jpg")
+
+        if self.data_args.image_aspect_ratio == 'pad':
+            image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
+            image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+        else:
+            image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+
+        input_prompt = format_input_prompt(step['language_instruction'], step['action'])
+        
+        data_dict = preprocess_droid(input_prompt, self.tokenizer)
+        data_dict['image'] = image
+
+        return data_dict
+
+
 @dataclass
 class DataCollatorForSupervisedDataset(object):
     """Collate examples for supervised fine-tuning."""
 
     tokenizer: transformers.PreTrainedTokenizer
+    matryoshka_vis_token_scale: int = None
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         input_ids, labels = tuple([instance[key] for instance in instances]
@@ -770,18 +905,24 @@ class DataCollatorForSupervisedDataset(object):
             else:
                 batch['images'] = images
 
+        if self.matryoshka_vis_token_scale != None:
+            batch['matryoshka_vis_token_scale'] = self.matryoshka_vis_token_scale
+
         return batch
 
 
 def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
                                 data_args) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
-    train_dataset = LazySupervisedDataset(tokenizer=tokenizer,
+    train_dataset = DroidLazySupervisedDataset(tokenizer=tokenizer,
                                 data_path=data_args.data_path,
                                 data_args=data_args)
-    data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
+    eval_dataset = DroidLazySupervisedDataset(tokenizer=tokenizer,
+                                data_path=data_args.eval_path,
+                                data_args=data_args)
+    data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer, matryoshka_vis_token_scale=data_args.matryoshka_vis_token_scale)
     return dict(train_dataset=train_dataset,
-                eval_dataset=None,
+                eval_dataset=eval_dataset,
                 data_collator=data_collator)
 
 
@@ -881,6 +1022,13 @@ def train(attn_implementation=None):
             cache_dir=training_args.cache_dir,
             model_max_length=training_args.model_max_length,
             padding_side="right"
+        )
+    if model_args.tokenizer_path:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            model_args.tokenizer_path,
+            model_max_length=training_args.model_max_length,
+            padding_side="right",
+            use_fast=False
         )
     else:
         tokenizer = transformers.AutoTokenizer.from_pretrained(
