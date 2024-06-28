@@ -1,5 +1,5 @@
 import os
-import torch
+import pickle
 from tqdm import tqdm
 import json
 
@@ -10,7 +10,7 @@ length_list = []
 for folder in tqdm(os.listdir(dataset_path)):
     if not '.' in folder:
         with open(f"{dataset_path}/{folder}/step_0", "rb") as file:       
-            step = torch.load(file)
+            step = pickle.load(file)
         
         input_ids = f"{step['language_instruction']} Next Action: {step['action']}"
         length_list.append(len(input_ids.split()))
