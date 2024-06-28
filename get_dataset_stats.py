@@ -1,7 +1,7 @@
 import os
 import json
 
-dataset_path = "/gpfsscratch/rech/uli/ujf38zl/DROID/eval"
+dataset_path = "/gpfsscratch/rech/uli/ujf38zl/DROID/train"
 
 number_of_steps_per_episode = [len(files) for _, _, files in sorted(os.walk(dataset_path), key = lambda x: int(x[0].split("_")[-1]) if x[0].split("_")[-1].isdigit() else -1)][1:]
 number_of_episodes = len(number_of_steps_per_episode)

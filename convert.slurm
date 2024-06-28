@@ -6,7 +6,7 @@
 #SBATCH -A uli@cpu
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=32
-#SBATCH -t 020:00:00
+#SBATCH -t 040:00:00
 #SBATCH --qos=qos_cpu-t4 
 
 echo ${SLURM_NODELIST}

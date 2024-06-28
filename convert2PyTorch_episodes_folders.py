@@ -14,15 +14,12 @@ episode_count = 0
 for episode in tqdm(dataset):
     for step_id, step in enumerate(episode["steps"]):
         instruction = step["language_instruction"].numpy().decode('utf-8')
-
         if not instruction:
             break
-
         if step_id == 0:
             episode_path = f"{SAVE_PATH}/episode_{episode_count}"
             os.mkdir(episode_path)
             episode_count += 1
-        
         new_step = {}
 
         new_step['language_instruction'] = instruction

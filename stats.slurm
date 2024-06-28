@@ -4,10 +4,10 @@
 #SBATCH --error=logs/write_meta.%j.err
 
 #SBATCH -A uli@cpu
-#SBATCH --qos=qos_cpu-t4 
+#SBATCH --qos=qos_cpu-dev 
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=32
-#SBATCH -t 10:00:00
+#SBATCH -t 1:00:00
 
 
 echo ${SLURM_NODELIST}
