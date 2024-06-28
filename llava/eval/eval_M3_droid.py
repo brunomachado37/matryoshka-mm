@@ -9,7 +9,7 @@ from llava.train.train import DroidLazySupervisedDataset, DataCollatorForSupervi
 
 BATCH_SIZE = 16
 DATASET_PATH = "../datasets/droid_torch_dc"
-MODEL_PATH = "./models/full_dataset/test_scale_36/checkpoint-145000"
+MODEL_PATH = "./models/full_dataset/test_scale_36/checkpoint-325000"
 
 
 def compute_metrics(outputs, labels):  
@@ -45,7 +45,7 @@ vision_tower.to(dtype=torch.bfloat16, device="cuda:0")
 data_args.image_processor = vision_tower.image_processor            
 
 datasets = {"eval": DroidLazySupervisedDataset(f"{DATASET_PATH}/eval", tokenizer=tokenizer, data_args=data_args)}
-data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
+data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer, matryoshka_vis_token_scale=36)
 
 for mode, dataset in datasets.items():
     acc, mse, mae, loss = [], [], [], []
@@ -72,7 +72,7 @@ for mode, dataset in datasets.items():
 
         del batch, collated_batch, preds
 
-        print(f"{mode} Average Accuracy: {sum(acc)/len(acc)*100:.1f}%")
-        print(f"{mode} Average MSE: {sum(mse)/len(mse):.2f}")
-        print(f"{mode} Average MAE: {sum(mae)/len(mae):.4f}")
-        print(f"{mode} Average Loss: {sum(loss)/len(loss)}")
+    print(f"{mode} Average Accuracy: {sum(acc)/len(acc)*100:.1f}%")
+    print(f"{mode} Average MSE: {sum(mse)/len(mse):.2f}")
+    print(f"{mode} Average MAE: {sum(mae)/len(mae):.4f}")
+    print(f"{mode} Average Loss: {sum(loss)/len(loss)}")

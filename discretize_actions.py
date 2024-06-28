@@ -63,3 +63,67 @@ def discretize(action):
 
 
     return action_string
+
+
+def discretize_velocities(action):
+    '''
+        Discretizes the action space of the robot.
+
+        Arguments:
+            action (np.array): 6 commanded Cartesian Velocities of the robot, 1 commanded Gripper Position and 1 Is Terminal state (to indicate if it is the last step of the episode) at this time step
+
+            First 3 Cartesian Velocities are coordinates :                      [-1, 1] [-1, 1] [-1, 1]
+            Last 3 Cartesian Positions are angles (in radiants):                [-1, 1] [-1, 1] [-1, 1]
+            Gripper Position is the oppening of the gripper (normalized):       [0, 1]
+            Terminate state is a boolean (binary):                              [0 or 1]
+
+        Returns:
+            string: Discretized actions between 0 and 255 in the form <y0><y1><y2><y3><y4><y5><y6><y7>
+    '''
+
+    low =  np.array([-0.7776297926902771, -0.5803514122962952, -0.5795090794563293, -0.6464047729969025, -0.7041108310222626, -0.8895104378461838, 0.0])               # DROID Q01
+    high = np.array([0.7597932070493698, 0.5726242214441299, 0.7351000607013702, 0.6705610305070877, 0.6464948207139969, 0.8897542208433151, 1.0])                     # DROID Q99
+
+    x = action[:7]
+    act = 2 * (x - low) / (high - low + 1e-8) - 1
+    act = np.clip(act, a_min=-1.0, a_max=1.0)                                                           # Clipping will affect np.digitize, since no values will be outside the range
+
+    bins = np.linspace(-1, 1, 257)                                                                      # This will results in actual 256 bins, since the last one will only be used when the value is exactly 1
+    discretized_action = np.digitize(act, bins) - 1                                                     # Digitize will return values from [1, #bins] due to clipping, so we subtract 1 to get [0, #bins-1]
+    discretized_action = np.clip(discretized_action, a_min=0, a_max=255)                                # Clip the last value to the last bin (only happens when it is exactly 1)
+
+    discretized_action = np.append(discretized_action, action[7:], axis=0).astype(int)
+    action_string = f"<{np.array2string(discretized_action, separator='><', prefix='<', suffix='>').replace('[', '').replace(']', '').replace(' ', '')}>"
+
+    if not verify_action(action_string):
+        raise Exception("Invalid Action String")
+
+    return action_string
+
+
+def undiscretize_velocities(action_string):
+    '''
+        Undiscretizes the action space of the robot.
+
+        Arguments:
+            action_string (string): Discretized actions between 0 and 255 in the form <y0><y1><y2><y3><y4><y5><y6><y7>
+            
+        Returns:
+            action (np.array): 6 commanded Cartesian Velocities of the robot, 1 commanded Gripper Position and 1 Is Terminal state (to indicate if it is the last step of the episode) at this time step
+    '''
+
+    if not verify_action(action_string):
+        raise Exception("Invalid Action String")
+
+    low =  np.array([-0.7776297926902771, -0.5803514122962952, -0.5795090794563293, -0.6464047729969025, -0.7041108310222626, -0.8895104378461838, 0.0])               # DROID Q01
+    high = np.array([0.7597932070493698, 0.5726242214441299, 0.7351000607013702, 0.6705610305070877, 0.6464948207139969, 0.8897542208433151, 1.0])                     # DROID Q99
+
+    discretized_action = np.fromstring(action_string[1:-1], count=8, dtype=int, sep='><')
+
+    bins = np.linspace(-1, 1, 257)
+    bin_centers = (bins[:-1] + bins[1:]) / 2.0
+
+    normalized_action = bin_centers[discretized_action[:7]]
+    unnormalized_action = 0.5 * (normalized_action + 1) * (high - low) + low
+
+    return np.append(unnormalized_action, discretized_action[7:], axis=0)

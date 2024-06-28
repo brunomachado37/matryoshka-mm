@@ -22,6 +22,7 @@ import logging
 import pathlib
 import re
 from typing import Dict, Optional, Sequence, List
+import pickle
 
 import torch
 
@@ -30,7 +31,6 @@ import tokenizers
 
 from llava.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 from torch.utils.data import Dataset
-from torchvision.transforms.functional import to_pil_image
 from llava.train.llava_trainer import LLaVATrainer
 
 from llava import conversation as conversation_lib
@@ -801,10 +801,10 @@ class DroidLazySupervisedDataset(Dataset):
         step_id = i - self.accumulated_sum[episode_id-1] if episode_id > 0 else i
 
         with open(f"{self.dataset_path}/episode_{episode_id}/step_{step_id}", "rb") as file:       
-            step = torch.load(file)
+            step = pickle.load(file)
 
         processor = self.data_args.image_processor
-        image = to_pil_image(step["image"].permute((2, 0, 1)))
+        image = step["image"]
 
         if self.data_args.image_aspect_ratio == 'pad':
             image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
