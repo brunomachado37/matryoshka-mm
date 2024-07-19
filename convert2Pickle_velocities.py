@@ -9,7 +9,7 @@ from PIL import Image
 import pickle as pkl
 
 DATASET_PATH = "/gpfsdswork/dataset/DROID"
-SAVE_PATH = "/gpfsscratch/rech/uli/ujf38zl/DROID/"
+SAVE_PATH = "/gpfsscratch/rech/uli/uuv83ah/droid_pickle/"
 
 dataset = tfds.load("droid", data_dir=DATASET_PATH, split="train")
 episode_count = 0
@@ -23,7 +23,7 @@ for episode in tqdm(dataset):
             if len(instructions) == 0:
                 break
 
-            episode_path = f"./droid_pkl/episode_{episode_count}"
+            episode_path = f"{SAVE_PATH}/episode_{episode_count}"
             os.mkdir(episode_path)
             episode_count += 1
         

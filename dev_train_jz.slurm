@@ -9,8 +9,8 @@
 #SBATCH --ntasks=8
 #SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-task=8
-#SBATCH -t 20:00:00
-#SBATCH --qos=qos_gpu-t3
+#SBATCH -t 00:15:00
+#SBATCH --qos=qos_gpu-dev
 #SBATCH --exclusive
 
 echo ${SLURM_NODELIST}
@@ -19,7 +19,7 @@ module purge
 module load cpuarch/amd
 module load pytorch-gpu/py3/2.1.1
 
-torchrun --master_port 28004 --nproc_per_node 8 --nnodes 1 llava/train/train_mem.py \
+torchrun --master_port 28006 --nproc_per_node 8 --nnodes 1 llava/train/train_mem.py \
     --model_name_or_path /gpfswork/rech/uli/uuv83ah/.cache/huggingface/hub/models--mucai--llava-v1.5-7b-m3/snapshots/629faba2a479cf94616e664c4a81f6892b9a4214/ \
     --tokenizer_path ./tokenizer \
     --version v1 \
@@ -33,10 +33,10 @@ torchrun --master_port 28004 --nproc_per_node 8 --nnodes 1 llava/train/train_mem
     --image_aspect_ratio pad \
     --group_by_modality_length True \
     --bf16 True \
-    --output_dir $WORK/M3/models/pick/test_03-token-scale-576 \
+    --output_dir $WORK/M3/models/pick/test_03-token-scale-144-dev \
     --num_train_epochs 20 \
-    --per_device_train_batch_size 2 \
-    --per_device_eval_batch_size 2 \
+    --per_device_train_batch_size 4 \
+    --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "steps" \
     --eval_steps 5000 \
@@ -53,5 +53,5 @@ torchrun --master_port 28004 --nproc_per_node 8 --nnodes 1 llava/train/train_mem
     --gradient_checkpointing True \
     --dataloader_num_workers 8 \
     --lazy_preprocess True \
-    --matryoshka_vis_token_scale 576 \
+    --matryoshka_vis_token_scale 144 \
     --report_to wandb
