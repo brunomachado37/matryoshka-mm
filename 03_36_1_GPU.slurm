@@ -11,7 +11,6 @@
 #SBATCH --cpus-per-task=8
 #SBATCH -t 20:00:00
 #SBATCH --qos=qos_gpu-t3
-#SBATCH --exclusive
 
 echo ${SLURM_NODELIST}
 

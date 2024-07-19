@@ -19,7 +19,7 @@ module purge
 module load cpuarch/amd
 module load pytorch-gpu/py3/2.1.1
 
-torchrun --master_port 28002 --nproc_per_node 4 --nnodes 2 llava/train/train_mem.py \
+torchrun --master_port 28008 --nproc_per_node 4 --nnodes 2 llava/train/train_mem.py \
     --model_name_or_path /gpfsscratch/rech/uli/commun/hub/models--mucai--llava-v1.5-7b-m3/snapshots/629faba2a479cf94616e664c4a81f6892b9a4214/ \
     --tokenizer_path ./tokenizer \
     --version v1 \
