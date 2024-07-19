@@ -47,8 +47,8 @@ If you are not using Linux, do *NOT* proceed, see instructions for [macOS](https
 
 1. Clone this repository and navigate to LLaVA folder
 ```bash
-git clone https://github.com/mu-cai/matryoshka-mm.git
-cd LLaVA
+git clone https://github.com/brunomachado37/matryoshka-mm.git
+cd llava
 ```
 
 2. Install Package
