@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=droid2torch
-#SBATCH --output=logs/droid2torch.%j.out
-#SBATCH --error=logs/droid2torch.%j.err
+#SBATCH --job-name=droid2Pickle
+#SBATCH --output=logs/droid2Pickle.%j.out
+#SBATCH --error=logs/droid2Pickle.%j.err
 
 #SBATCH -A uli@cpu
 #SBATCH --ntasks-per-node=1
@@ -13,4 +13,4 @@ echo ${SLURM_NODELIST}
 
 module load pytorch-gpu/py3/2.0.0
 
-python convert2PyTorch_episodes_folders.py
+python convert2Pickle_velocities.py
