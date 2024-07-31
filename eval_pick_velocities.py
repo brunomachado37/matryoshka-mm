@@ -8,7 +8,7 @@ import transformers
 
 from llava.model import LlavaLlamaForCausalLM
 from data_utils import DataArguments, make_supervised_data_module, expand2square, format_input_prompt, preprocess_droid
-from discretize_actions import discretize_velocities
+from data.discretize_actions import discretize_velocities
 
 
 torch.backends.cuda.enable_mem_efficient_sdp(False)

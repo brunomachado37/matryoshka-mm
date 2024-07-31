@@ -116,6 +116,7 @@ class TrainingArguments(transformers.TrainingArguments):
     lora_bias: str = "none"
     mm_projector_lr: Optional[float] = None
     group_by_modality_length: bool = field(default=False)
+    output_dir: str = field(default="checkpoints")
 
 
 def maybe_zero_3(param, ignore_status=False, name=None):
@@ -431,7 +432,7 @@ def train(attn_implementation=None):
                         module = module.to(torch.bfloat16)
 
     train_dataset, data_collator = get_dataset_and_collator(data_root_dir=data_args.data_path,
-                                                            data_mix="Fractal-RT-1",
+                                                            data_mix="fractal20220817",
                                                             image_transform=data_args.image_processor,
                                                             tokenizer=tokenizer,
                                                             default_image_resolution=(3, 336, 336),

@@ -1,6 +1,17 @@
 import numpy as np
 import re
 
+DATASET_STATS = {
+    "droid": {
+        "q01": np.array([-0.7776297926902771, -0.5803514122962952, -0.5795090794563293, -0.6464047729969025, -0.7041108310222626, -0.8895104378461838, 0.0]),
+        "q99": np.array([0.7597932070493698, 0.5726242214441299, 0.7351000607013702, 0.6705610305070877, 0.6464948207139969, 0.8897542208433151, 1.0])
+    },
+    "fractal20220817": {
+        "q01": np.array([-0.22453527510166169, -0.14820013284683228, -0.231589707583189, -0.3517994859814644, -0.4193011274933815, -0.43643461108207704, 0.0]), 
+        "q99": np.array([0.17824687153100965, 0.14938379630446405, 0.21842354819178575, 0.5892666035890578, 0.35272657424211445, 0.44796681255102094, 1.0])
+    }
+}
+
 
 def verify_action(action_string):
     # Check if the action string follows the expected pattern
@@ -65,7 +76,7 @@ def discretize(action):
     return action_string
 
 
-def discretize_velocities(action):
+def discretize_velocities(action, dataset_name):
     '''
         Discretizes the action space of the robot.
 
@@ -81,8 +92,8 @@ def discretize_velocities(action):
             string: Discretized actions between 0 and 255 in the form <y0><y1><y2><y3><y4><y5><y6><y7>
     '''
 
-    low =  np.array([-0.7776297926902771, -0.5803514122962952, -0.5795090794563293, -0.6464047729969025, -0.7041108310222626, -0.8895104378461838, 0.0])               # DROID Q01
-    high = np.array([0.7597932070493698, 0.5726242214441299, 0.7351000607013702, 0.6705610305070877, 0.6464948207139969, 0.8897542208433151, 1.0])                     # DROID Q99
+    low =  DATASET_STATS[dataset_name]["q01"]
+    high = DATASET_STATS[dataset_name]["q99"]
 
     x = action[:7]
     act = 2 * (x - low) / (high - low + 1e-8) - 1

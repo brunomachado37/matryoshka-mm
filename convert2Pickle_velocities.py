@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 import os
 import numpy as np
-from discretize_actions import discretize_velocities
+from data.discretize_actions import discretize_velocities
 import random
 from PIL import Image
 import pickle as pkl

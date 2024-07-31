@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 import os
 import numpy as np
-from discretize_actions import discretize
+from data.discretize_actions import discretize
 
 DATASET_PATH = "/gpfsdswork/dataset/DROID"
 SAVE_PATH = "/gpfsscratch/rech/uli/ujf38zl/DROID/"

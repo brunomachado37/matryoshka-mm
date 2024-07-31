@@ -14,13 +14,14 @@ from torch.nn.utils.rnn import pad_sequence
 from transformers import PreTrainedTokenizerBase
 from PIL import Image
 import numpy as np
+from copy import deepcopy
 
 from data.rlds.utils.data_utils import tree_map
 from data.rlds import make_interleaved_dataset, make_single_dataset
 from data.rlds.oxe import OXE_NAMED_MIXTURES, get_oxe_dataset_kwargs_and_weights
 from data.rlds.utils.data_utils import NormalizationType
-
-IGNORE_INDEX = -100
+from data.discretize_actions import discretize_velocities
+from llava.constants import IGNORE_INDEX, DEFAULT_IMAGE_TOKEN
 
 
 # === Interface for an Image Transform ===
@@ -36,20 +37,30 @@ class RLDSBatchTransform:
 
     def __call__(self, rlds_batch: Dict[str, Any]) -> Dict[str, Any]:
         """Converts a RLDS batch to a format suitable for training a model."""
-        dataset_name, actions = rlds_batch["dataset_name"], rlds_batch["action"]
+        dataset_name, action = rlds_batch["dataset_name"], rlds_batch["action"]
         imgs = [Image.fromarray(rlds_batch["observation"]["image_primary"][i]) for i in range(rlds_batch["observation"]["image_primary"].shape[0])]
-        lang = rlds_batch["task"]["language_instruction"].decode().lower()
-
-        # Tokenize (w/ `base_tokenizer`)
-        input_ids = self.base_tokenizer(lang, add_special_tokens=True).input_ids          
+        lang = rlds_batch["task"]["language_instruction"].decode().lower()      
 
         if self.predict_stop_token:
-            is_terminal = np.zeros((actions.shape[0], 1), dtype=np.int32)
+            is_terminal = np.zeros((action.shape[0], 1), dtype=np.int32)
             is_terminal[-1, -1] = int(rlds_batch["is_terminal"])                
-            labels = np.append(actions, is_terminal, axis=-1)
+            targets = np.append(action, is_terminal, axis=-1)
 
-        # Tensorize =>> Run Image Transform to get `pixel_values`
-        input_ids, labels = torch.tensor(input_ids), torch.tensor(labels, dtype=torch.float32)
+        # Discretize Actions
+        targets_str = discretize_velocities(targets[0], dataset_name.decode("utf-8"))
+
+        # Concat language instructions with actions
+        input_str = f"{DEFAULT_IMAGE_TOKEN}\n{lang}. Next Action: {targets_str}"
+
+        # Tokenize (w/ `base_tokenizer`)
+        input_ids = list(self.base_tokenizer(input_str, add_special_tokens=True).input_ids)
+
+        # Tensorize =>> Get Labels ==> Run Image Transform to get `pixel_values`
+        input_ids = torch.tensor(input_ids)
+        
+        labels = deepcopy(input_ids)
+        labels[:-8] = IGNORE_INDEX
+        
         pixel_values = self.image_transform(imgs, return_tensors="pt")
 
         return dict(pixel_values, input_ids=input_ids, labels=labels, dataset_name=dataset_name)
@@ -207,7 +218,7 @@ class PaddedCollatorForActionPrediction:
             raise ValueError(f"Unsupported `pixel_values` type = {type(pixel_values)}")
 
         output = dict(
-            pixel_values=pixel_values,
+            images=pixel_values,
             input_ids=input_ids,
             # attention_mask=attention_mask,
             labels=labels,
