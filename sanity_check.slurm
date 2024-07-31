@@ -39,7 +39,7 @@ torchrun --master_port 28004 --nproc_per_node 4 --nnodes 1 llava/train/train_mem
     --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "steps" \
-    --eval_steps 16 \
+    --eval_steps 2 \
     --save_strategy "steps" \
     --save_steps 20 \
     --save_total_limit 1 \
