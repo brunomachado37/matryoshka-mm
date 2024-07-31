@@ -2,15 +2,16 @@ import os
 import pickle
 from tqdm import tqdm
 import json
+import pickle as pkl
 
-dataset_path = "/gpfsscratch/rech/uli/ujf38zl/DROID/train"
+dataset_path = "/gpfsscratch/rech/uli/uuv83ah/droid_pick/train"
 
 length_list = []
 
 for folder in tqdm(os.listdir(dataset_path)):
     if not '.' in folder:
         with open(f"{dataset_path}/{folder}/step_0", "rb") as file:       
-            step = pickle.load(file)
+            step = pkl.load(file)
         
         input_ids = f"{step['language_instruction']} Next Action: {step['action']}"
         length_list.append(len(input_ids.split()))
